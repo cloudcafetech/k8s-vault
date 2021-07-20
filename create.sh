@@ -52,6 +52,10 @@ echo "Creating the Vault Deployment..."
 
 kubectl apply -f vault/deployment.yaml
 
+echo "Creating the Vault Ingress..."
+
+kubectl apply -f vault/ingress.yaml
+
 
 echo "All done! Forwarding port 8200..."
 
