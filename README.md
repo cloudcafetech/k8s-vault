@@ -80,7 +80,6 @@ nodes:
     containerPath: /var/run/docker.sock
 - role: worker
 EOF
-kind create cluster --config kind-kube-install.yaml
 kind create cluster --name kube-central --kubeconfig kube-central-kubeconf --config kind-kube-install.yaml --wait 2m
 ```
 
