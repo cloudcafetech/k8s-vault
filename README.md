@@ -61,7 +61,27 @@ mv cfssl* /usr/local/bin/
 Start the cluster:
 
 ```
+HIP=`ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1`
+cat <<EOF > kind-kube-install.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerPort: 19091
+  apiServerAddress: $HIP
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30080
+    hostPort: 80
+  - containerPort: 30443
+    hostPort: 443
+  extraMounts:
+  - hostPath: /var/run/docker.sock
+    containerPath: /var/run/docker.sock
+- role: worker
+EOF
 kind create cluster --config kind-kube-install.yaml
+kind create cluster --name kube-central --kubeconfig kube-central-kubeconf --config kind-kube-install.yaml --wait 2m
 ```
 
 ### TLS Certificates
