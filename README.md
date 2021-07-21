@@ -170,8 +170,10 @@ export VAULT_CACERT="certs/ca.pem"
 ```
 kubectl get pods
 vault status
+vault kv put cubbyhole/hello foo=world
 ```
 
 ## Reference
 
-Check out the [post](https://testdriven.io/running-vault-and-consul-on-kubernetes).
+Check out the [post1](https://testdriven.io/running-vault-and-consul-on-kubernetes).
+[post2](https://github.com/marcel-dempers/docker-development-youtube-series/tree/master/hashicorp/vault)
