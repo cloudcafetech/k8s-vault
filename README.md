@@ -175,5 +175,10 @@ vault kv put cubbyhole/hello foo=world
 
 ## Reference
 
-Check out the [post1](https://testdriven.io/running-vault-and-consul-on-kubernetes).
+Check out the 
+
+[post1](https://testdriven.io/running-vault-and-consul-on-kubernetes)
+
 [post2](https://github.com/marcel-dempers/docker-development-youtube-series/tree/master/hashicorp/vault)
+
+[post3](https://github.com/radudd/vault-helm)
