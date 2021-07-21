@@ -78,8 +78,7 @@ chmod +x cfssl*
 mv cfssl* /usr/local/bin/
 
 # Clone Git
-git clone https://github.com/prasenforu/CLT.git
-wget https://raw.githubusercontent.com/prasenforu/CLT/main/kube-kind-ingress.yaml
+git clone https://github.com/cloudcafetech/k8s-vault.git
 
 # Kubernetes Cluster Creation
 for CTX in $CLUSTER0
@@ -116,7 +115,7 @@ chmod 700 get_helm.sh
 # Setup Ingress
 echo "Setting Ingress for $CLUSTER0"
 export KUBECONFIG=$CLUSTER0-kubeconf
-kubectl apply -f kube-kind-ingress.yaml
+kubectl apply -f k8s-vault/kube-kind-ingress.yaml
 sleep 15
 kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
 
