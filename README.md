@@ -161,7 +161,7 @@ kubectl exec -it vault-2 -- sh -c "vault operator unseal -tls-skip-verify"
 In a new terminal window, navigate to the project directory and set the following environment variables:
 
 ```
-export VAULT_ADDR=https://127.0.0.1:8200
+export VAULT_ADDR=http://vault.3.142.243.229.nip.io/
 export VAULT_CACERT="certs/ca.pem"
 ```
 
