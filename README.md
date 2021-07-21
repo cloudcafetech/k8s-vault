@@ -135,7 +135,7 @@ kubectl create secret generic vault-vault-cert-active \
     --from-file=certs/ca.pem \
     --from-file=certs/tls.crt \
     --from-file=certs/tls.key
-kubectl create -f vault.yaml
+kubectl create -f vault/vault.yaml
 ```
 
 - Initialize Vault
@@ -149,6 +149,11 @@ kubectl exec -it vault-0 -- sh -c "vault operator unseal -tls-skip-verify"
 kubectl exec -it vault-1 -- sh -c "vault operator unseal -tls-skip-verify"
 kubectl exec -it vault-2 -- sh -c "vault operator unseal -tls-skip-verify"
 ```
+
+- Ingress
+
+```kubectl create -f vault/ingress.yaml```
+
 
 
 ### Environment Variables
