@@ -122,11 +122,11 @@ helm install vault-backend hashicorp/consul -f override/consul-acl.yaml
 
 - Extract the generated ACL token
 
-```TOKEN=`oc get secret vault-backend-consul-bootstrap-acl-token -o template --template '{{.data.token}}'|base64 -d` ```
+```TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -o template --template '{{.data.token}}'|base64 -d` ```
 
 - Add this token to Vault override
 
-```sed -i "s/dummytoken/$TOKEN/g" vault.yaml```
+```sed -i "s/dummytoken/$TOKEN/g" vault/vault.yaml```
 
 - Finally install Vault
 
