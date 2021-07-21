@@ -111,13 +111,45 @@ cp certs/vault.pem certs/tls.crt
 cp certs/vault-key.pem certs/tls.key
 ```
 
-### Vault and Consul
+### Vault & Consul, Vault & Injector Setup
 
-Spin up Vault and Consul on Kubernetes:
+- First deploy Consul
 
 ```
-sh create.sh
+helm repo add hashicorp https://helm.releases.hashicorp.com
+helm install vault-backend hashicorp/consul -f override/consul-acl.yaml
 ```
+
+- Extract the generated ACL token
+
+```TOKEN=`oc get secret vault-backend-consul-bootstrap-acl-token -o template --template '{{.data.token}}'|base64 -d` ```
+
+- Add this token to Vault override
+
+```sed -i "s/dummytoken/$TOKEN/g" vault.yaml```
+
+- Finally install Vault
+
+```
+kubectl create secret generic vault-vault-cert-active \
+    --from-file=certs/ca.pem \
+    --from-file=certs/tls.crt \
+    --from-file=certs/tls.key
+kubectl create -f vault.yaml
+```
+
+- Initialize Vault
+
+```kubectl exec -it vault-0 -- sh -c "vault operator init -key-shares=1 -key-threshold=1 -tls-skip-verify" > vault-data```
+
+- Unseal Vault
+
+```
+kubectl exec -it vault-0 -- sh -c "vault operator unseal -tls-skip-verify"
+kubectl exec -it vault-1 -- sh -c "vault operator unseal -tls-skip-verify"
+kubectl exec -it vault-2 -- sh -c "vault operator unseal -tls-skip-verify"
+```
+
 
 ### Environment Variables
 
