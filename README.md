@@ -107,6 +107,8 @@ cfssl gencert \
     -config=certs/config/ca-config.json \
     -profile=default \
     certs/config/vault-csr.json | cfssljson -bare certs/vault
+cp certs/vault.pem certs/tls.crt
+cp certs/vault-key.pem certs/tls.key
 ```
 
 ### Vault and Consul
