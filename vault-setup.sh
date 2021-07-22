@@ -94,8 +94,8 @@ kubectl create -f vault/vault.yaml -n $VNS
 # Setup Ingress
 kubectl create -f vault/ingress.yaml -n $VNS
 
-# Put # in front of exit to stop here
-exit
+# Remove # in front of exit (in next line) to stop here
+#exit
 
 # Initialize Vault
 echo  "Initialize Vault"
