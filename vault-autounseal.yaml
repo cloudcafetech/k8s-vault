@@ -13,15 +13,21 @@ data:
     NS=$(echo "$1" | jq -rc '.meta .namespace')
     NAME=$(echo "$1" | jq -rc '.meta .name')
     REASON=$(echo "$1" | jq -rc '.status .type')
+    KUBECONFIG=
 
     # Unseal Vault
     if [ "$REASON" == "delete" ] && [ "$NAME" == "vault-0" ] || [ "$NAME" == "vault-1" ] || [ "$NAME" == "vault-2" ]; then
-    for i in {0..2}
-     do
-      kubectl exec -it vault-"$n" -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"      
-      kubectl exec -it vault-"$n" -- sh -c "vault status -tls-skip-verify"
-      sleep 2
-     done    
+     kubectl exec -it "$NAME" -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"  
+    # Cheks all vaults are unsealed
+     for i in {0..2}
+      do
+       kubectl exec -it vault-"$i" -- sh -c "vault status -tls-skip-verify" | tee output
+       sleep 2
+       STAT=`cat output | grep Sealed | awk '{print $2'}`
+       if [ "$STAT" == "true" ]; then
+        kubectl exec -it vault-"$i" -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"      
+       fi
+      done    
     fi
 ---
 apiVersion: v1
@@ -304,7 +310,7 @@ spec:
         - name: SLEEPTIME
           value: "50"
         - name: UNSEALKEY
-          value: "Jk1ofFgIuvRDoX8jNys5P241MQFYXzOFQLbuI8GNi1k="
+          value: "DUMMY-UNSEAL-KEY"
       volumes:
       - configMap:
           defaultMode: 420
