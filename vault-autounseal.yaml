@@ -16,7 +16,12 @@ data:
 
     # Unseal Vault
     if [ "$REASON" == "delete" ] && [ "$NAME" == "vault-0" ] || [ "$NAME" == "vault-1" ] || [ "$NAME" == "vault-2" ]; then
-     kubectl exec -it $NAME -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"
+    for i in {0..2}
+     do
+      kubectl exec -it vault-"$n" -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"      
+      kubectl exec -it vault-"$n" -- sh -c "vault status -tls-skip-verify"
+      sleep 2
+     done    
     fi
 ---
 apiVersion: v1
