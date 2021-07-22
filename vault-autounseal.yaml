@@ -109,7 +109,7 @@ stringData:
       # Settings for Webhook
       webhook:
         enabled: true
-        url: 'http://vault-svc.kube-vault.svc.cluster.local:9000/hooks/k8swatch-hook'
+        url: 'http://vault-autounseal-svc.kube-vault.svc.cluster.local:9000/hooks/k8swatch-hook'
 ---
 # serviceaccount
 apiVersion: v1
@@ -261,7 +261,7 @@ kind: Service
 metadata:
   labels:
     app: vault
-  name: vault-svc
+  name: vault-autounseal-svc
   namespace: kube-vault
 spec:
   ports:
