@@ -34,9 +34,19 @@ then
  mv cfssljson /usr/local/bin/
 fi
 
+# Install GIT
+if ! command -v git &> /dev/null;
+then
+ echo "Installing GIT"
+ yum install git -y
+fi
+
+# Checking repo
+if [ ! -d "k8s-vault" ]; then
+ git clone https://github.com/cloudcafetech/k8s-vault.git
+fi
 find ./k8s-vault/ -type f -exec sed -i -e "s/172.31.14.138/$HIP/g" {} \;
 find ./k8s-vault/ -type f -exec sed -i -e "s/3.16.154.209/$PUB/g" {} \;
-
 cd k8s-vault
 
 # Certificate Generate
