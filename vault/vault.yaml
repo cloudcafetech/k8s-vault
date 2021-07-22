@@ -2,11 +2,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vault
+  namespace: kube-vault
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vault-agent-injector
+  namespace: kube-vault
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
@@ -20,7 +22,7 @@ webhooks:
   clientConfig:
     service:
       name: vault-agent-injector-svc
-      namespace: default
+      namespace: kube-vault
       path: "/mutate"
     caBundle: ""
   rules:
@@ -56,7 +58,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: vault-agent-injector
-  namespace: default
+  namespace: kube-vault
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -69,13 +71,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: vault
-  namespace: default
+  namespace: kube-vault
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: vault-discovery-role
-  namespace: default
+  namespace: kube-vault
 rules:
 - apiGroups:
   - ""
@@ -92,7 +94,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: vault-vault-init
-  namespace: default
+  namespace: kube-vault
 rules:
 - apiGroups:
   - ""
@@ -116,7 +118,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: vault-discovery-rolebinding
-  namespace: default
+  namespace: kube-vault
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -124,13 +126,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: vault
-  namespace: default
+  namespace: kube-vault
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: vault-vault-init
-  namespace: default
+  namespace: kube-vault
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -143,6 +145,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: vault-config
+  namespace: kube-vault
 data:
   extraconfig-from-values.hcl: |-
     disable_mlock = true
@@ -171,7 +174,7 @@ metadata:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault
   name: vault
-  namespace: default
+  namespace: kube-vault
 spec:
   podManagementPolicy: Parallel
   replicas: 3
@@ -291,7 +294,7 @@ metadata:
     app.kubernetes.io/name: vault-agent-injector
     component: webhook
   name: vault-agent-injector
-  namespace: default
+  namespace: kube-vault
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
@@ -380,7 +383,7 @@ metadata:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault
   name: vault
-  namespace: default
+  namespace: kube-vault
 spec:
   clusterIP:
   clusterIPs:
@@ -408,7 +411,7 @@ metadata:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault
   name: vault-active
-  namespace: default
+  namespace: kube-vault
 spec:
   clusterIP:
   clusterIPs:
@@ -437,7 +440,7 @@ metadata:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault-agent-injector
   name: vault-agent-injector-svc
-  namespace: default
+  namespace: kube-vault
 spec:
   clusterIP:
   clusterIPs:
@@ -459,7 +462,7 @@ metadata:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault
   name: vault-internal
-  namespace: default
+  namespace: kube-vault
 spec:
   clusterIP: None
   clusterIPs:
@@ -488,7 +491,7 @@ metadata:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault
   name: vault-standby
-  namespace: default
+  namespace: kube-vault
 spec:
   clusterIP:
   clusterIPs:
@@ -509,3 +512,4 @@ spec:
     vault-active: "false"
   sessionAffinity: None
   type: ClusterIP
+  
