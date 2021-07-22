@@ -1,0 +1,311 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-unseal-script-configmap
+  namespace: kube-vault
+data:
+  vaultunseal.sh: |
+    #!/bin/bash
+    # Vault Auto Unseal Script
+
+    # Taking input from webhook
+    KOBJ=$(echo "$1" | jq -rc '.meta .kind')
+    NS=$(echo "$1" | jq -rc '.meta .namespace')
+    NAME=$(echo "$1" | jq -rc '.meta .name')
+    REASON=$(echo "$1" | jq -rc '.status .type')
+
+    # Unseal Vault
+    if [ "$REASON" == "delete" ] && [ "$NAME" == "vault-0" ] || [ "$NAME" == "vault-1" ] || [ "$NAME" == "vault-2" ]; then
+     kubectl exec -it $NAME -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"
+    fi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-hooks-configmap
+  namespace: kube-vault
+data:
+  hooks.json: |
+    [
+      {
+        "pass-arguments-to-command": [
+          {
+            "source": "entire-payload"
+          }
+        ],
+        "id": "k8swatch-hook",
+        "execute-command": "/etc/webhook/vaultunseal.sh",
+        "command-working-directory": "/etc/webhook"
+      },
+      {
+        "pass-arguments-to-command": [
+          {
+            "source": "entire-payload"
+          }
+        ],
+        "id": "scanner-hook",
+        "execute-command": "/etc/webhook/scanner.sh",
+        "command-working-directory": "/etc/webhook"
+      }
+    ]
+kind: ConfigMap
+metadata:
+  name: vault-hooks-configmap
+  namespace: kube-vault
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: botkube-configmap
+  namespace: kube-vault
+  labels:
+    app: botkube
+data:
+  resource_config.yaml: |
+    ## Resources you want to watch
+    resources:
+      - name: pod
+        namespaces:
+          include:
+            - kube-vault
+          ignore:
+            -
+        events:
+          - delete
+    recommendations: true
+    settings:
+      clustername: not-configured
+      kubectl:
+        enabled: false
+        defaultNamespace: default
+        restrictAccess: false
+      configwatcher: true
+      upgradeNotifier: true
+---
+# secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: botkube-communication-secret
+  namespace: kube-vault
+  labels:
+    app: botkube
+type: Opaque
+stringData:
+  comm_config.yaml: |
+    # Communication settings
+    communications:
+      # Settings for Webhook
+      webhook:
+        enabled: true
+        url: 'http://vault-svc.kube-vault.svc.cluster.local:9000/hooks/k8swatch-hook'
+---
+# serviceaccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: botkube-sa
+  namespace: kube-vault
+  labels:
+    app: botkube
+---
+# Source: botkube/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: botkube-clusterrole
+  labels:
+    app: botkube
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "watch", "list"]
+---
+# clusterrolebinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: botkube-clusterrolebinding
+  labels:
+    app: botkube
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: botkube-clusterrole
+subjects:
+- kind: ServiceAccount
+  name: botkube-sa
+  namespace: kube-vault
+---
+# deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: botkube
+  namespace: kube-vault
+  labels:
+    component: controller
+    app: botkube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: controller
+      app: botkube
+  template:
+    metadata:
+      labels:
+        component: controller
+        app: botkube
+    spec:
+      serviceAccountName: botkube-sa
+      containers:
+        - name: botkube
+          image: "prasenforu/botkube:v1"
+          #image: "infracloudio/botkube:v0.10.0"
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: config-volume
+              mountPath: "/config"
+          env:
+            - name: CONFIG_PATH
+              value: "/config/"
+            # set one of the log levels- info, warn, debug, error, fatal, panic
+            - name: LOG_LEVEL
+              value: "info"
+            # set BotKube release version
+            - name: BOTKUBE_VERSION
+              value: v0.10.0
+      volumes:
+        - name: config-volume
+          projected:
+            sources:
+            - configMap:
+                name: botkube-configmap
+            - secret:
+                name: botkube-communication-secret
+      # run as non privilaged user
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-sa
+  namespace: kube-vault
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: vault-clusterrolebinding
+subjects:
+- kind: ServiceAccount
+  name: vault-sa
+  namespace: kube-vault
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: vault-clusterrole
+  apiGroup: ""
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: vault-clusterrole
+  namespace: kube-vault
+rules:
+  - apiGroups:
+    - "*"
+    resources:
+    - pods
+    - namespaces
+    verbs:
+    - list
+    - get
+  - apiGroups:
+    - "*"
+    resources:
+    - pods/exec
+    verbs:
+    - get
+    - create
+  - apiGroups:
+    - "*"
+    resources:
+    - pods
+    - replicationcontrollers
+    verbs:
+    - "*"
+  - apiGroups:
+    - extensions
+    resources:
+    - statefulsets
+    - statefulsets/scale
+    verbs:
+    - '*'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: vault
+  name: vault-svc
+  namespace: kube-vault
+spec:
+  ports:
+  - name: 9000-tcp
+    port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: vault
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vault
+  name: vault-autounseal
+  namespace: kube-vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      shareProcessNamespace: true
+      serviceAccount: vault-sa
+      containers:
+      - image: prasenforu/ocpscan:9.0
+        name: vault
+        ports:
+        - name: vault
+          containerPort: 9000
+        volumeMounts:
+        - mountPath: /etc/webhook/hooks.json
+          subPath: hooks.json
+          name: vault-hooks-volume-config
+        - mountPath: /etc/webhook/vaultunseal.sh
+          subPath: vaultunseal.sh
+          name: vault-unseal-script-volume-config
+        env:
+        - name: SERVICE_TOKEN_FILENAME
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        - name: SLEEPTIME
+          value: "50"
+        - name: UNSEALKEY
+          value: "Jk1ofFgIuvRDoX8jNys5P241MQFYXzOFQLbuI8GNi1k="
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: vault-hooks-configmap
+        name: vault-hooks-volume-config
+      - configMap:
+          defaultMode: 493
+          name: vault-unseal-script-configmap
+        name: vault-unseal-script-volume-config
