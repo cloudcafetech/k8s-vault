@@ -108,8 +108,8 @@ echo  "Setting up Auto Unsealed Vault"
 export KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
 sed -i "s/DUMMY-UNSEAL-KEY/$KEYS/g' vault-autounseal.yaml
 kubectl create -f vault-autounseal.yaml -n $VNS
-echo "Waiting for Strimzi Cluster Operator POD ready .."
+echo "Waiting for Vault Auto Unsealed POD ready .."
 VASPOD=$(kubectl get pod -n $VNS | grep vault-autounseal | awk '{print $1}')
 kubectl wait pods/$VASPOD --for=condition=Ready --timeout=5m -n $VNS
-sleep 15
+sleep 5
 kubectl delete po vault-0 -n $VNS 
