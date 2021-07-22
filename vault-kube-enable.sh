@@ -2,7 +2,7 @@
 # Enable Vault KUBERNETES Auth
 
 VNS=kube-vault
-export VAULT_ADDR=http://vault-internal.172.31.18.255.nip.io/
+export VAULT_ADDR=http://vault-internal.172.31.14.138.nip.io/
 export VAULT_TOKEN=s.EsgrrtPlNsG6Dqh2u9QZIXAL
 
 cat <<EOF > vault-auth.yaml
