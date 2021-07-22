@@ -145,9 +145,12 @@ kubectl create -f vault/vault.yaml
 - Unseal Vault
 
 ```
-kubectl exec -it vault-0 -- sh -c "vault operator unseal -tls-skip-verify"
-kubectl exec -it vault-1 -- sh -c "vault operator unseal -tls-skip-verify"
-kubectl exec -it vault-2 -- sh -c "vault operator unseal -tls-skip-verify"
+export KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
+export ROOT_TOKEN=`more vault-data | grep Token | cut -d ":" -f2 | cut -d " " -f2`
+export VAULT_TOKEN=$ROOT_TOKEN
+kubectl exec -it vault-0 -- sh -c "vault operator unseal -tls-skip-verify $KEYS"
+kubectl exec -it vault-1 -- sh -c "vault operator unseal -tls-skip-verify $KEYS"
+kubectl exec -it vault-2 -- sh -c "vault operator unseal -tls-skip-verify $KEYS"
 ```
 
 - Ingress
