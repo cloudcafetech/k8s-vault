@@ -4,62 +4,6 @@ metadata:
   name: vault
   namespace: kube-vault
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: vault-agent-injector
-  namespace: kube-vault
----
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: vault-agent-injector-cfg
-  labels:
-    app.kubernetes.io/instance: vault
-    app.kubernetes.io/name: vault-agent-injector
-webhooks:
-- name: vault.hashicorp.com
-  clientConfig:
-    service:
-      name: vault-agent-injector-svc
-      namespace: kube-vault
-      path: "/mutate"
-    caBundle: ""
-  rules:
-    - operations: ["CREATE", "UPDATE"]
-      apiGroups: [""]
-      apiVersions: ["v1"]
-      resources: ["pods"]
-  namespaceSelector:
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: vault-agent-injector-clusterrole
-rules:
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: vault-agent-injector-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: vault-agent-injector-clusterrole
-subjects:
-- kind: ServiceAccount
-  name: vault-agent-injector
-  namespace: kube-vault
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -72,74 +16,6 @@ subjects:
 - kind: ServiceAccount
   name: vault
   namespace: kube-vault
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: vault-discovery-role
-  namespace: kube-vault
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - watch
-  - list
-  - update
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: vault-vault-init
-  namespace: kube-vault
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - watch
-  - list
-  - create
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - get
-  - watch
-  - list
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: vault-discovery-rolebinding
-  namespace: kube-vault
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: vault-discovery-role
-subjects:
-- kind: ServiceAccount
-  name: vault
-  namespace: kube-vault
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: vault-vault-init
-  namespace: kube-vault
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: vault-vault-init
-subjects:
-- kind: ServiceAccount
-  name: vault
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -286,96 +162,6 @@ spec:
           defaultMode: 420
           secretName: vault-vault-cert-active
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/instance: vault
-    app.kubernetes.io/name: vault-agent-injector
-    component: webhook
-  name: vault-agent-injector
-  namespace: kube-vault
-spec:
-  progressDeadlineSeconds: 600
-  replicas: 1
-  revisionHistoryLimit: 10
-  selector:
-    matchLabels:
-      app.kubernetes.io/instance: vault
-      app.kubernetes.io/name: vault-agent-injector
-      component: webhook
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        app.kubernetes.io/instance: vault
-        app.kubernetes.io/name: vault-agent-injector
-        component: webhook
-    spec:
-      containers:
-      - args:
-        - agent-inject
-        - 2>&1
-        env:
-        - name: AGENT_INJECT_LISTEN
-          value: :8080
-        - name: AGENT_INJECT_LOG_LEVEL
-          value: info
-        - name: AGENT_INJECT_VAULT_ADDR
-          value: https://vault-active.default.svc:8200
-        - name: AGENT_INJECT_VAULT_AUTH_PATH
-          value: auth/kubernetes
-        - name: AGENT_INJECT_VAULT_IMAGE
-          value: vault:1.5.4
-        - name: AGENT_INJECT_TLS_AUTO
-          value: vault-agent-injector-cfg
-        - name: AGENT_INJECT_TLS_AUTO_HOSTS
-          value: vault-agent-injector-svc,vault-agent-injector-svc.default,vault-agent-injector-svc.default.svc
-        - name: AGENT_INJECT_LOG_FORMAT
-          value: standard
-        - name: AGENT_INJECT_REVOKE_ON_SHUTDOWN
-          value: "false"
-        - name: AGENT_INJECT_SET_SECURITY_CONTEXT
-          value: "false"
-        image: hashicorp/vault-k8s:0.6.0
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 2
-          httpGet:
-            path: /health/ready
-            port: 8080
-            scheme: HTTPS
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: sidecar-injector
-        readinessProbe:
-          failureThreshold: 2
-          httpGet:
-            path: /health/ready
-            port: 8080
-            scheme: HTTPS
-          initialDelaySeconds: 2
-          periodSeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 5
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      serviceAccount: vault-agent-injector
-      serviceAccountName: vault-agent-injector
-      terminationGracePeriodSeconds: 30
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -401,57 +187,6 @@ spec:
     app.kubernetes.io/instance: vault
     app.kubernetes.io/name: vault
     component: server
-  sessionAffinity: None
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/instance: vault
-    app.kubernetes.io/name: vault
-  name: vault-active
-  namespace: kube-vault
-spec:
-  clusterIP:
-  clusterIPs:
-  ports:
-  - name: https
-    port: 8200
-    protocol: TCP
-    targetPort: 8200
-  - name: https-internal
-    port: 8201
-    protocol: TCP
-    targetPort: 8201
-  publishNotReadyAddresses: true
-  selector:
-    app.kubernetes.io/instance: vault
-    app.kubernetes.io/name: vault
-    component: server
-    vault-active: "true"
-  sessionAffinity: None
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/instance: vault
-    app.kubernetes.io/name: vault-agent-injector
-  name: vault-agent-injector-svc
-  namespace: kube-vault
-spec:
-  clusterIP:
-  clusterIPs:
-  ports:
-  - port: 443
-    protocol: TCP
-    targetPort: 8080
-  selector:
-    app.kubernetes.io/instance: vault
-    app.kubernetes.io/name: vault-agent-injector
-    component: webhook
   sessionAffinity: None
   type: ClusterIP
 ---
@@ -510,6 +245,35 @@ spec:
     app.kubernetes.io/name: vault
     component: server
     vault-active: "false"
+  sessionAffinity: None
+  type: ClusterIP
+---  
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/name: vault
+  name: vault-active
+  namespace: kube-vault
+spec:
+  clusterIP:
+  clusterIPs:
+  ports:
+  - name: https
+    port: 8200
+    protocol: TCP
+    targetPort: 8200
+  - name: https-internal
+    port: 8201
+    protocol: TCP
+    targetPort: 8201
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/name: vault
+    component: server
+    vault-active: "true"
   sessionAffinity: None
   type: ClusterIP
   
