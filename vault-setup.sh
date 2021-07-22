@@ -93,3 +93,23 @@ kubectl create -f vault/vault.yaml -n $VNS
 
 # Setup Ingress
 kubectl create -f vault/ingress.yaml -n $VNS
+
+# Put # in front of exit to stop here
+exit
+
+# Initialize Vault
+echo  "Initialize Vault"
+kubectl wait pods/vault-0 --for=condition=Ready --timeout=5m -n $VNS
+kubectl exec -it vault-0 -n $VNS -- sh -c "vault operator init -key-shares=1 -key-threshold=1 -tls-skip-verify" | tee vault-data
+sleep 5
+
+# Auto Unsealed Vault
+echo  "Setting up Auto Unsealed Vault"
+export KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
+sed -i "s/DUMMY-UNSEAL-KEY/$KEYS/g' vault-autounseal.yaml
+kubectl create -f vault-autounseal.yaml -n $VNS
+echo "Waiting for Strimzi Cluster Operator POD ready .."
+VASPOD=$(kubectl get pod -n $VNS | grep vault-autounseal | awk '{print $1}')
+kubectl wait pods/$VASPOD --for=condition=Ready --timeout=5m -n $VNS
+sleep 15
+kubectl delete po vault-0 -n $VNS 
