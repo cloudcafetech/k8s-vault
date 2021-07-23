@@ -185,3 +185,5 @@ Check out the
 [post2](https://github.com/marcel-dempers/docker-development-youtube-series/tree/master/hashicorp/vault)
 
 [post3](https://github.com/radudd/vault-helm)
+
+[Remote Kubernetes Cluster Authentication](https://www.freshbrewed.science/vault-on-kubernetes-part-2-multiple-k8s-templates-and-external-ips/index.html)
