@@ -4,8 +4,8 @@
 # -------------------------------------------------------------------------------------------------------------------------------------
 # vault auth-enable --path="kube-cluster-A" kubernetes
 # vault auth-enable --path="kube-cluster-B" kubernetes
-# vault write auth/kube-cluster-A/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-A:8443
-# vault write auth/kube-cluster-B/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-B:8443 
+# vault write auth/kube-cluster-A/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-A:6443
+# vault write auth/kube-cluster-B/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-B:6443 
 # -------------------------------------------------------------------------------------------------------------------------------------
 
 VNS=kube-vault
