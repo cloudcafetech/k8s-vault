@@ -37,6 +37,8 @@ subjects:
   namespace: $VNS
 EOF
 
+kubectl create -f vault-auth.yaml -n $VNS
+
 # Set VAULT_SA_NAME to the service account you created earlier
 export VAULT_SA_NAME=$(kubectl get sa vault-auth -n $VNS -o jsonpath="{.secrets[*]['name']}")
 
