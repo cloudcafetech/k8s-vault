@@ -1,7 +1,15 @@
 #!/bin/bash
 # Enable Vault KUBERNETES Auth
+# For multiple Kubernetes clusters do as follow
+# -------------------------------------------------------------------------------------------------------------------------------------
+# vault auth-enable --path="kube-cluster-A" kubernetes
+# vault auth-enable --path="kube-cluster-B" kubernetes
+# vault write auth/kube-cluster-A/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-A:8443
+# vault write auth/kube-cluster-B/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-B:8443 
+# -------------------------------------------------------------------------------------------------------------------------------------
 
 VNS=kube-vault
+export K8S_HOST="https://kubernetes.default.svc:443"
 export VAULT_ADDR=http://vault-internal.172.31.14.138.nip.io/
 export VAULT_TOKEN=s.EsgrrtPlNsG6Dqh2u9QZIXAL
 
@@ -37,6 +45,5 @@ export SA_JWT_TOKEN=$(kubectl get secret $VAULT_SA_NAME -n $VNS -o jsonpath="{.d
 export SA_CA_CRT=$(kubectl get secret $VAULT_SA_NAME -n $VNS -o jsonpath="{.data['ca\.crt']}" | base64 --decode; echo)
 
 # Enable Kubernetes as auth
-export K8S_HOST="https://kubernetes.default.svc:443"
 vault auth enable --tls-skip-verify kubernetes
 vault write --tls-skip-verify auth/kubernetes/config token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host="$K8S_HOST" kubernetes_ca_cert="$SA_CA_CRT"
