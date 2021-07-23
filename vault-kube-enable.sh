@@ -10,13 +10,15 @@
 # vault write auth/kube-cluster-B/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-B:6443 
 # -------------------------------------------------------------------------------------------------------------------------------------
 
+export VAULT_TOKEN=s.EsgrrtPlNsG6Dqh2u9QZIXAL
 LOCATION=local
 CLUSTER_NAME=kube-one
-VNS=kube-vault
-export LOCAL_K8S_HOST="https://kubernetes.default.svc:443"
+
 export REMOTE_K8S_HOST="https://<Load Balancer DNS>:6443"
 export VAULT_ADDR=http://vault-internal.172.31.14.138.nip.io/
-export VAULT_TOKEN=s.EsgrrtPlNsG6Dqh2u9QZIXAL
+
+LOCAL_K8S_HOST="https://kubernetes.default.svc:443"
+VNS=kube-vault
 
 cat <<EOF > vault-auth.yaml
 apiVersion: v1
