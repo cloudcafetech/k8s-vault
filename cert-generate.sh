@@ -77,6 +77,9 @@ openssl x509 \
 # Export combined certs for vault
 cat "${DIR}/vault.crt" "${DIR}/ca.crt" > "${DIR}/vault-combined.crt"
 
+# View All Certificate
+#openssl x509 -text -noout -in "${DIR}/vault.crt"
+
 kubectl delete secret vault-tls -n $NS --ignore-not-found
 kubectl delete secret vault-tls -n default --ignore-not-found
 
