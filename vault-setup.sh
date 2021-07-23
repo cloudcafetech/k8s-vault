@@ -118,6 +118,6 @@ kubectl delete po vault-0 -n $VNS --force
 export TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -n $VNS -o template --template '{{.data.token}}'|base64 -d`
 export KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
 export ROOT_TOKEN=`more vault-data | grep Token | cut -d ":" -f2 | cut -d " " -f2`
-export CONSUL=kubectl  get ing consul -n $VNS | grep consul-internal | cut -d "," -f2 | awk '{print $1}'`
+export CONSUL=`kubectl  get ing consul -n $VNS | grep consul-internal | cut -d "," -f2 | awk '{print $1}'`
 curl --header "Authorization: Bearer $TOKEN" --request PUT -d "$KEYS=" http://$CONSUL/v1/kv/unseal-key
 curl --header "Authorization: Bearer $TOKEN" --request PUT -d "$ROOT_TOKEN" http://$CONSUL/v1/kv/root-token
