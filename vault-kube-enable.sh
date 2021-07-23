@@ -1,6 +1,7 @@
 #!/bin/bash
 # Enable Vault KUBERNETES Auth
-# For multiple Kubernetes clusters do as follow
+# For multiple Kubernetes clusters do as follow 
+# Ref: https://github.com/hashicorp/vault-plugin-auth-kubernetes/issues/19#issuecomment-359877488
 # -------------------------------------------------------------------------------------------------------------------------------------
 # vault auth-enable --path="kube-cluster-A" kubernetes
 # vault auth-enable --path="kube-cluster-B" kubernetes
