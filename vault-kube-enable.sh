@@ -4,14 +4,17 @@
 # Ref1: https://github.com/hashicorp/vault-plugin-auth-kubernetes/issues/19#issuecomment-359877488
 # Ref2: https://www.freshbrewed.science/vault-on-kubernetes-part-2-multiple-k8s-templates-and-external-ips/index.html
 # -------------------------------------------------------------------------------------------------------------------------------------
-# vault auth-enable --path="kube-cluster-A" kubernetes
-# vault auth-enable --path="kube-cluster-B" kubernetes
+# vault auth enable --path="kube-cluster-A" kubernetes
+# vault auth enable --path="kube-cluster-B" kubernetes
 # vault write auth/kube-cluster-A/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-A:6443
 # vault write auth/kube-cluster-B/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=HOST-B:6443 
 # -------------------------------------------------------------------------------------------------------------------------------------
 
+LOCATION=local
+CLUSTER_NAME=kube-one
 VNS=kube-vault
-export K8S_HOST="https://kubernetes.default.svc:443"
+export LOCAL_K8S_HOST="https://kubernetes.default.svc:443"
+export REMOTE_K8S_HOST="https://<Load Balancer DNS>:6443"
 export VAULT_ADDR=http://vault-internal.172.31.14.138.nip.io/
 export VAULT_TOKEN=s.EsgrrtPlNsG6Dqh2u9QZIXAL
 
@@ -49,5 +52,10 @@ export SA_JWT_TOKEN=$(kubectl get secret $VAULT_SA_NAME -n $VNS -o jsonpath="{.d
 export SA_CA_CRT=$(kubectl get secret $VAULT_SA_NAME -n $VNS -o jsonpath="{.data['ca\.crt']}" | base64 --decode; echo)
 
 # Enable Kubernetes as auth
-vault auth enable --tls-skip-verify kubernetes
-vault write --tls-skip-verify auth/kubernetes/config token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host="$K8S_HOST" kubernetes_ca_cert="$SA_CA_CRT"
+if [[ "$LOCATION" == "local" ]]; then
+  vault auth enable --tls-skip-verify kubernetes
+  vault write --tls-skip-verify auth/kubernetes/config token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host="$LOCAL_K8S_HOST" kubernetes_ca_cert="$SA_CA_CRT"
+else 
+  vault auth enable --tls-skip-verify --path="$CLUSTER_NAME" kubernetes
+  vault write auth/$CLUSTER_NAME/config kubernetes_ca_cert="$SA_CA_CRT" token_reviewer_jwt="$SA_JWT_TOKEN" kubernetes_host=$REMOTE_K8S_HOST
+fi
