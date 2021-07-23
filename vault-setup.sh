@@ -72,8 +72,11 @@ cp certs/vault-key.pem certs/tls.key
 kubectl create ns $VNS
 
 # Setup Consul
-helm repo add hashicorp https://helm.releases.hashicorp.com
-helm install vault-backend hashicorp/consul -f override/consul-acl.yaml --namespace $VNS
+#helm repo add hashicorp https://helm.releases.hashicorp.com
+#helm install vault-backend hashicorp/consul -f override/consul-acl.yaml --namespace $VNS
+# Altering namespace
+sed -i "s/namespace: kube-vault/namespace: $VNS/g" consul/consul.yaml
+kubectl create -f consul/consul.yaml -n $VNS
 
 # setup Vault
 TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -n $VNS -o template --template '{{.data.token}}'|base64 -d`
