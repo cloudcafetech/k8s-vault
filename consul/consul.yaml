@@ -277,7 +277,7 @@ spec:
 
           consul-k8s server-acl-init \
             -resource-prefix=${CONSUL_FULLNAME} \
-            -k8s-namespace=default \
+            -k8s-namespace=kube-vault \
             -server-address="${CONSUL_FULLNAME}-server-0.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc" \
             -server-address="${CONSUL_FULLNAME}-server-1.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc" \
             -server-address="${CONSUL_FULLNAME}-server-2.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc" \
