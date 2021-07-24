@@ -21,12 +21,12 @@ data:
     # Cheks all vaults are unsealed
      for i in {0..2}
       do
-       kubectl exec -it vault-"$i" -- sh -c "vault status -tls-skip-verify" | tee output
-       sleep 2
-       STAT=`cat output | grep Sealed | awk '{print $2'}`
+       STAT=`kubectl exec -it vault-"$i" -- sh -c "vault status -tls-skip-verify" | grep Sealed | awk '{print $2'} tr -d '\r'`
        if [ "$STAT" == "true" ]; then
+        echo "Vault #$i is Sealed, please wait doing Unsealed"        
         kubectl exec -it vault-"$i" -- sh -c "vault operator unseal -tls-skip-verify $UNSEALKEY"      
        fi
+       sleep 2       
       done    
     fi
 ---
