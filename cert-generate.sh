@@ -4,7 +4,7 @@
 NS=kube-vault
 kubectl create ns $NS
 
-DIR="$(pwd)/certs"
+DIR="$(pwd)/tls"
 
 rm -rf "${DIR}"
 mkdir -p "${DIR}"
@@ -80,15 +80,15 @@ cat "${DIR}/vault.crt" "${DIR}/ca.crt" > "${DIR}/vault-combined.crt"
 # View All Certificate
 #openssl x509 -text -noout -in "${DIR}/vault.crt"
 
-kubectl delete secret vault-tls -n $NS --ignore-not-found
-kubectl delete secret vault-tls -n default --ignore-not-found
+#kubectl delete secret vault-vault-cert-active -n $NS --ignore-not-found
+#kubectl delete secret vault-vault-cert-active -n default --ignore-not-found
 
-kubectl create secret generic vault-vault-cert-active -n $NS \
-  --from-file="${DIR}/ca.crt" \
-  --from-file="tls.crt=${DIR}/vault-combined.crt" \
-  --from-file="tls.key=${DIR}/vault.key"
+#kubectl create secret generic vault-vault-cert-active -n $NS \
+#  --from-file="${DIR}/ca.crt" \
+#  --from-file="tls.crt=${DIR}/vault-combined.crt" \
+#  --from-file="tls.key=${DIR}/vault.key"
 
-kubectl create secret generic vault-vault-cert-active -n default \
-  --from-file="${DIR}/ca.crt" \
-  --from-file="tls.crt=${DIR}/vault-combined.crt" \
-  --from-file="tls.key=${DIR}/vault.key"
+#kubectl create secret generic vault-vault-cert-active -n default \
+#  --from-file="${DIR}/ca.crt" \
+#  --from-file="tls.crt=${DIR}/vault-combined.crt" \
+#  --from-file="tls.key=${DIR}/vault.key"
