@@ -48,25 +48,10 @@ fi
 find ./k8s-vault/ -type f -exec sed -i -e "s/172.31.14.138/$HIP/g" {} \;
 find ./k8s-vault/ -type f -exec sed -i -e "s/3.16.154.209/$PUB/g" {} \;
 cd k8s-vault
+chmod +x *.sh
 
 # Certificate Generate
-cfssl gencert -initca certs/config/ca-csr.json | cfssljson -bare certs/ca
-
-cfssl gencert \
-    -ca=certs/ca.pem \
-    -ca-key=certs/ca-key.pem \
-    -config=certs/config/ca-config.json \
-    -profile=default \
-    certs/config/consul-csr.json | cfssljson -bare certs/consul
-
-cfssl gencert \
-    -ca=certs/ca.pem \
-    -ca-key=certs/ca-key.pem \
-    -config=certs/config/ca-config.json \
-    -profile=default \
-    certs/config/vault-csr.json | cfssljson -bare certs/vault
-cp certs/vault.pem certs/tls.crt
-cp certs/vault-key.pem certs/tls.key
+./cert-generate.sh
 
 # Create Namespace
 kubectl create ns $VNS
@@ -76,7 +61,13 @@ kubectl create ns $VNS
 #helm install vault-backend hashicorp/consul -f override/consul-acl.yaml --namespace $VNS
 # Altering namespace
 sed -i "s/namespace: kube-vault/namespace: $VNS/g" consul/consul.yaml
+sed -i "s/k8s-namespace=kube-vault/k8s-namespace=$VNS/g" consul/consul.yaml
 kubectl create -f consul/consul.yaml -n $VNS
+echo "Waiting Consul to be ready state"
+kubectl wait pods/vault-backend-consul-server-0 --for=condition=Ready --timeout=5m -n $VNS
+kubectl wait pods/vault-backend-consul-server-1 --for=condition=Ready --timeout=5m -n $VNS
+kubectl wait pods/vault-backend-consul-server-2 --for=condition=Ready --timeout=5m -n $VNS
+kubectl wait job/vault-backend-consul-server-acl-init --for=condition=complete --timeout=5m -n $VNS
 
 # setup Vault
 TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -n $VNS -o template --template '{{.data.token}}'|base64 -d`
@@ -89,9 +80,13 @@ sed -i "s/namespace: kube-vault/namespace: $VNS/g" vault/vault.yaml
 
 #Finally install Vault
 kubectl create secret generic vault-vault-cert-active -n $VNS \
-    --from-file=certs/ca.pem \
-    --from-file=certs/tls.crt \
-    --from-file=certs/tls.key
+  --from-file=tls/ca.crt \
+  --from-file=tls.crt=tls/vault-combined.crt \
+  --from-file=tls.key=tls/vault.key
+#kubectl create secret generic vault-vault-cert-active -n $VNS \
+#  --from-file=tls/ca.crt \
+#  --from-file=tls/tls.crt \
+#  --from-file=tls/tls.key
 kubectl create -f vault/vault.yaml -n $VNS
 
 # Setup Ingress
@@ -101,15 +96,23 @@ kubectl create -f vault/ingress.yaml -n $VNS
 #exit
 
 # Initialize Vault
-echo  "Initialize Vault"
+echo "Waiting Vault to be ready state"
 kubectl wait pods/vault-0 --for=condition=Ready --timeout=5m -n $VNS
-kubectl exec -it vault-0 -n $VNS -- sh -c "vault operator init -key-shares=1 -key-threshold=1 -tls-skip-verify" | tee vault-data
+kubectl wait pods/vault-1 --for=condition=Ready --timeout=5m -n $VNS
+kubectl wait pods/vault-2 --for=condition=Ready --timeout=5m -n $VNS
+echo  "Initialize Vault"
+kubectl exec -it vault-0 -n $VNS -- sh -c "vault operator init -key-shares=1 -key-threshold=1 -tls-skip-verify" | tee vault-secret
 sleep 5
+
+# Removing Binary Character
+perl -pe 's/\x1b\[[0-9;]*[mG]//g' vault-secret > vault-data
+dos2unix vault-data
 
 # Auto Unsealed Vault
 echo  "Setting up Auto Unsealed Vault"
-export KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
-sed -i "s/DUMMY-UNSEAL-KEY/$KEYS/g" vault-autounseal.yaml
+KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
+sed -i "s|DUMMY-UNSEAL-KEY|$KEYS|g" vault-autounseal.yaml
+dos2unix vault-autounseal.yaml
 kubectl create -f vault-autounseal.yaml -n $VNS
 echo "Waiting for Vault Auto Unsealed POD ready .."
 VASPOD=$(kubectl get pod -n $VNS | grep vault-autounseal | awk '{print $1}')
@@ -118,9 +121,8 @@ sleep 5
 kubectl delete po vault-0 -n $VNS --force
 
 # Uploading data (root-token & unseal-key) to Consul for safe backup
-export TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -n $VNS -o template --template '{{.data.token}}'|base64 -d`
-export KEYS=`more vault-data | grep Unseal | cut -d ":" -f2 | cut -d " " -f2`
-export ROOT_TOKEN=`more vault-data | grep Token | cut -d ":" -f2 | cut -d " " -f2`
-export CONSUL=`kubectl  get ing consul -n $VNS | grep consul-internal | cut -d "," -f2 | awk '{print $1}'`
-curl --header "Authorization: Bearer $TOKEN" --request PUT -d "$KEYS=" http://$CONSUL/v1/kv/unseal-key
+TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -n $VNS -o template --template '{{.data.token}}'|base64 -d`
+ROOT_TOKEN=`more vault-data | grep Token | cut -d ":" -f2 | cut -d " " -f2`
+CONSUL=`kubectl get ing consul -n $VNS | grep consul-internal | cut -d "," -f2 | awk '{print $1}'`
+curl --header "Authorization: Bearer $TOKEN" --request PUT -d "$KEYS" http://$CONSUL/v1/kv/unseal-key
 curl --header "Authorization: Bearer $TOKEN" --request PUT -d "$ROOT_TOKEN" http://$CONSUL/v1/kv/root-token
