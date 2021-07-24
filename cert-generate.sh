@@ -36,11 +36,11 @@ extendedKeyUsage     = clientAuth, serverAuth
 subjectAltName       = @alt_names
 
 [alt_names]
-DVNS.1 = *.vault.$VNS.svc.cluster.local
-DVNS.2 = vault.$VNS.svc.cluster.local
-DVNS.3 = localhost
-DVNS.4 = vault
-DVNS.5 = 127.0.0.1
+DNS.1 = *.vault.$VNS.svc.cluster.local
+DNS.2 = vault.$VNS.svc.cluster.local
+DNS.3 = localhost
+DNS.4 = vault
+DNS.5 = 127.0.0.1
 EOF
 
 # Generate Vault's certificates and a CSR
