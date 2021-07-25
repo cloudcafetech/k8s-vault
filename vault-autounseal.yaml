@@ -59,18 +59,14 @@ data:
         "command-working-directory": "/etc/webhook"
       }
     ]
-kind: ConfigMap
-metadata:
-  name: vault-hooks-configmap
-  namespace: kube-vault
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: botkube-configmap
+  name: vault-k8seventwatch-cm
   namespace: kube-vault
   labels:
-    app: botkube
+    app: k8seventwatch
 data:
   resource_config.yaml: |
     ## Resources you want to watch
@@ -93,14 +89,13 @@ data:
       configwatcher: true
       upgradeNotifier: true
 ---
-# secret
 apiVersion: v1
 kind: Secret
 metadata:
-  name: botkube-communication-secret
+  name: vault-k8seventwatch-secret
   namespace: kube-vault
   labels:
-    app: botkube
+    app: k8seventwatch
 type: Opaque
 stringData:
   comm_config.yaml: |
@@ -111,67 +106,63 @@ stringData:
         enabled: true
         url: 'http://vault-autounseal-svc.kube-vault.svc.cluster.local:9000/hooks/k8swatch-hook'
 ---
-# serviceaccount
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: botkube-sa
+  name: vault-k8seventwatch-sa
   namespace: kube-vault
   labels:
-    app: botkube
+    app: k8seventwatch
 ---
-# Source: botkube/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: botkube-clusterrole
+  name: vault-k8seventwatch-clusterrole
   labels:
-    app: botkube
+    app: k8seventwatch
 rules:
   - apiGroups: ["*"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
 ---
-# clusterrolebinding
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: botkube-clusterrolebinding
+  name: vault-k8seventwatch-clusterrolebinding
   labels:
-    app: botkube
+    app: k8seventwatch
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: botkube-clusterrole
+  name: vault-k8seventwatch-clusterrole
 subjects:
 - kind: ServiceAccount
-  name: botkube-sa
+  name: vault-k8seventwatch-sa
   namespace: kube-vault
 ---
-# deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: botkube
+  name: vault-k8seventwatch
   namespace: kube-vault
   labels:
     component: controller
-    app: botkube
+    app: k8seventwatch
 spec:
   replicas: 1
   selector:
     matchLabels:
       component: controller
-      app: botkube
+      app: k8seventwatch
   template:
     metadata:
       labels:
         component: controller
-        app: botkube
+        app: k8seventwatch
     spec:
-      serviceAccountName: botkube-sa
+      serviceAccountName: vault-k8seventwatch-sa
       containers:
-        - name: botkube
+        - name: k8seventwatch
           image: "prasenforu/botkube:v1"
           #image: "infracloudio/botkube:v0.10.0"
           imagePullPolicy: Always
@@ -192,9 +183,9 @@ spec:
           projected:
             sources:
             - configMap:
-                name: botkube-configmap
+                name: vault-k8seventwatch-cm
             - secret:
-                name: botkube-communication-secret
+                name: vault-k8seventwatch-secret
       # run as non privilaged user
       securityContext:
         runAsUser: 101
@@ -203,7 +194,7 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: vault-sa
+  name: vaultunseal-sa
   namespace: kube-vault
 ---
 kind: RoleBinding
@@ -213,7 +204,7 @@ metadata:
   namespace: kube-vault
 subjects:
 - kind: ServiceAccount
-  name: vault-sa
+  name: vaultunseal-sa
   namespace: kube-vault
   apiGroup: ""
 roleRef:
@@ -244,7 +235,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: vault
+    app: vaultunseal
   name: vault-autounseal-svc
   namespace: kube-vault
 spec:
@@ -254,32 +245,32 @@ spec:
     protocol: TCP
     targetPort: 9000
   selector:
-    app: vault
+    app: vaultunseal
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: vault
+    app: vaultunseal
   name: vault-autounseal
   namespace: kube-vault
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vault
+      app: vaultunseal
   template:
     metadata:
       labels:
-        app: vault
+        app: vaultunseal
     spec:
       shareProcessNamespace: true
-      serviceAccount: vault-sa
+      serviceAccount: vaultunseal-sa
       containers:
       - image: prasenforu/ocpscan:9.0
-        name: vault
+        name: vaultunseal
         ports:
-        - name: vault
+        - name: vaultunseal
           containerPort: 9000
         volumeMounts:
         - mountPath: /etc/webhook/hooks.json
@@ -291,8 +282,6 @@ spec:
         env:
         - name: SERVICE_TOKEN_FILENAME
           value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
-        - name: SLEEPTIME
-          value: "50"
         - name: UNSEALKEY
           value: "DUMMY-UNSEAL-KEY"
       volumes:
