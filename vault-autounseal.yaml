@@ -206,55 +206,39 @@ metadata:
   name: vault-sa
   namespace: kube-vault
 ---
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: vault-clusterrolebinding
+  name: vaultunseal-rolebinding
+  namespace: kube-vault
 subjects:
 - kind: ServiceAccount
   name: vault-sa
   namespace: kube-vault
   apiGroup: ""
 roleRef:
-  kind: ClusterRole
-  name: vault-clusterrole
+  kind: Role
+  name: vaultunseal-role
   apiGroup: ""
 ---
-kind: ClusterRole
+kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: vault-clusterrole
+  name: vaultunseal-role
   namespace: kube-vault
 rules:
-  - apiGroups:
-    - "*"
-    resources:
-    - pods
-    - namespaces
-    verbs:
-    - list
-    - get
-  - apiGroups:
-    - "*"
-    resources:
-    - pods/exec
-    verbs:
-    - get
-    - create
-  - apiGroups:
-    - "*"
-    resources:
-    - pods
-    - replicationcontrollers
-    verbs:
-    - "*"
-  - apiGroups:
-    - extensions
-    resources:
-    - statefulsets
-    - statefulsets/scale
-    verbs:
-    - '*'
+  - apiGroups: ["*"]
+    resources: ["pods"]
+    resourceNames: ["vault-0", "vault-1", "vault-2"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["*"]
+    resources: ["namespaces"]
+    resourceNames: ["kube-vault"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["*"]
+    resources: ["pods/exec"]
+    resourceNames: ["vault-0", "vault-1", "vault-2"]
+    verbs: ["get", "create"]
 ---
 apiVersion: v1
 kind: Service
