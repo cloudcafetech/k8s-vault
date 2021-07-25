@@ -1,0 +1,415 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-backend-consul-server
+  namespace: kube-vault
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-backend-consul-server-acl-init
+  namespace: kube-vault
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-backend-consul-server
+  namespace: kube-vault
+rules: null
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-backend-consul-server-acl-init
+  namespace: kube-vault
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-backend-consul-server
+  namespace: kube-vault
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-backend-consul-server
+subjects:
+- kind: ServiceAccount
+  name: vault-backend-consul-server
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-backend-consul-server-acl-init
+  namespace: kube-vault
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-backend-consul-server-acl-init
+subjects:
+- kind: ServiceAccount
+  name: vault-backend-consul-server-acl-init
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-backend-consul-server-config
+  namespace: kube-vault
+data:
+  acl-config.json: |-
+    {
+      "acl": {
+        "enabled": true,
+        "default_policy": "deny",
+        "down_policy": "extend-cache",
+        "enable_token_persistence": true
+      }
+    }
+  central-config.json: |-
+    {
+      "enable_central_service_config": true
+    }
+  extra-from-values.json: '{}'
+  ui-config.json: |-
+    {
+      "ui_config": {
+        "enabled": true,
+        "metrics_provider": "prometheus",
+        "metrics_proxy": {
+          "base_url": "http://prometheus-server"
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: consul
+    component: server
+    release: vault-backend
+  name: vault-backend-consul-server
+  namespace: kube-vault
+spec:
+  podManagementPolicy: Parallel
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: consul
+      component: server
+      hasDNS: "true"
+      release: vault-backend
+  serviceName: vault-backend-consul-server
+  template:
+    metadata:
+      annotations:
+        consul.hashicorp.com/config-checksum: af4969b714703db1e43b23e59c6241600aa0386c6a8bd2a9ee09ad1d05a43061
+        consul.hashicorp.com/connect-inject: "false"
+      labels:
+        app: consul
+        component: server
+        hasDNS: "true"
+        release: vault-backend
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -ec
+        - |
+          CONSUL_FULLNAME="vault-backend-consul"
+
+          exec /bin/consul agent \
+            -advertise="${ADVERTISE_IP}" \
+            -bind=0.0.0.0 \
+            -bootstrap-expect=3 \
+            -client=0.0.0.0 \
+            -config-dir=/consul/config \
+            -datacenter=dc1 \
+            -data-dir=/consul/data \
+            -domain=consul \
+            -hcl="connect { enabled = true }" \
+            -ui \
+            -retry-join="${CONSUL_FULLNAME}-server-0.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc:8301" \
+            -retry-join="${CONSUL_FULLNAME}-server-1.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc:8301" \
+            -retry-join="${CONSUL_FULLNAME}-server-2.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc:8301" \
+            -serf-lan-port=8301 \
+            -server
+        env:
+        - name: ADVERTISE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: hashicorp/consul:1.10.0
+        imagePullPolicy: IfNotPresent
+        name: consul
+        ports:
+        - containerPort: 8500
+          name: http
+          protocol: TCP
+        - containerPort: 8301
+          name: serflan-tcp
+          protocol: TCP
+        - containerPort: 8301
+          name: serflan-udp
+          protocol: UDP
+        - containerPort: 8302
+          name: serfwan-tcp
+          protocol: TCP
+        - containerPort: 8302
+          name: serfwan-udp
+          protocol: UDP
+        - containerPort: 8300
+          name: server
+          protocol: TCP
+        - containerPort: 8600
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 8600
+          name: dns-udp
+          protocol: UDP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - |
+              curl http://127.0.0.1:8500/v1/status/leader \
+              2>/dev/null | grep -E '".+"'
+          failureThreshold: 2
+          initialDelaySeconds: 5
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /consul/data
+          name: data-default
+        - mountPath: /consul/config
+          name: config
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      serviceAccount: vault-backend-consul-server
+      serviceAccountName: vault-backend-consul-server
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: vault-backend-consul-server-config
+        name: config
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      name: data-default
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: standard
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: consul
+    release: vault-backend
+  name: vault-backend-consul-server-acl-init
+  namespace: kube-vault
+spec:
+  backoffLimit: 6
+  completions: 1
+  parallelism: 1
+  selector:
+    matchLabels:
+      job-name: vault-backend-consul-server-acl-init
+  template:
+    metadata:
+      annotations:
+        consul.hashicorp.com/connect-inject: "false"
+      labels:
+        app: consul
+        component: server-acl-init
+        job-name: vault-backend-consul-server-acl-init
+        release: vault-backend
+      name: vault-backend-consul-server-acl-init
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -ec
+        - |
+          CONSUL_FULLNAME="vault-backend-consul"
+
+          consul-k8s server-acl-init \
+            -resource-prefix=${CONSUL_FULLNAME} \
+            -k8s-namespace=kube-vault \
+            -server-address="${CONSUL_FULLNAME}-server-0.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc" \
+            -server-address="${CONSUL_FULLNAME}-server-1.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc" \
+            -server-address="${CONSUL_FULLNAME}-server-2.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc" \
+            -allow-dns=true \
+            -acl-binding-rule-selector=serviceaccount.name!=default \
+            -create-client-token=false \
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: hashicorp/consul-k8s:0.26.0
+        imagePullPolicy: IfNotPresent
+        name: post-install-job
+        resources:
+          limits:
+            cpu: 50m
+            memory: 50Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      serviceAccount: vault-backend-consul-server-acl-init
+      serviceAccountName: vault-backend-consul-server-acl-init
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: consul
+    component: server
+    release: vault-backend
+  name: vault-backend-consul-server
+  namespace: kube-vault
+spec:
+  clusterIP: None
+  clusterIPs:
+  ports:
+  - name: http
+    port: 8500
+    protocol: TCP
+    targetPort: 8500
+  - name: serflan-tcp
+    port: 8301
+    protocol: TCP
+    targetPort: 8301
+  - name: serflan-udp
+    port: 8301
+    protocol: UDP
+    targetPort: 8301
+  - name: serfwan-tcp
+    port: 8302
+    protocol: TCP
+    targetPort: 8302
+  - name: serfwan-udp
+    port: 8302
+    protocol: UDP
+    targetPort: 8302
+  - name: server
+    port: 8300
+    protocol: TCP
+    targetPort: 8300
+  - name: dns-tcp
+    port: 8600
+    protocol: TCP
+    targetPort: dns-tcp
+  - name: dns-udp
+    port: 8600
+    protocol: UDP
+    targetPort: dns-udp
+  publishNotReadyAddresses: true
+  selector:
+    app: consul
+    component: server
+    release: vault-backend
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: consul
+    component: dns
+    release: vault-backend
+  name: vault-backend-consul-dns
+  namespace: kube-vault
+spec:
+  clusterIP: 
+  clusterIPs:
+  ports:
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+    targetPort: dns-tcp
+  - name: dns-udp
+    port: 53
+    protocol: UDP
+    targetPort: dns-udp
+  selector:
+    app: consul
+    hasDNS: "true"
+    release: vault-backend
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: consul
+    component: ui
+    release: vault-backend
+  name: vault-backend-consul-ui
+  namespace: kube-vault
+spec:
+  clusterIP: 
+  clusterIPs:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8500
+  selector:
+    app: consul
+    component: server
+    release: vault-backend
+  sessionAffinity: None
+  type: ClusterIP
