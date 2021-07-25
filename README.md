@@ -107,36 +107,13 @@ cfssl gencert \
     -config=certs/config/ca-config.json \
     -profile=default \
     certs/config/vault-csr.json | cfssljson -bare certs/vault
-cp certs/vault.pem certs/tls.crt
-cp certs/vault-key.pem certs/tls.key
 ```
 
-### Vault & Consul, Vault & Injector Setup
+### Vault & Consul Setup
 
-- First deploy Consul
+- Deploy Consul & Vault
 
-```
-helm repo add hashicorp https://helm.releases.hashicorp.com
-helm install vault-backend hashicorp/consul -f override/consul-acl.yaml
-```
-
-- Extract the generated ACL token
-
-```TOKEN=`kubectl get secret vault-backend-consul-bootstrap-acl-token -o template --template '{{.data.token}}'|base64 -d` ```
-
-- Add this token to Vault override
-
-```sed -i "s/dummytoken/$TOKEN/g" vault/vault.yaml```
-
-- Finally install Vault
-
-```
-kubectl create secret generic vault-vault-cert-active \
-    --from-file=certs/ca.pem \
-    --from-file=certs/tls.crt \
-    --from-file=certs/tls.key
-kubectl create -f vault/vault.yaml
-```
+```sh create.sh```
 
 - Initialize Vault
 
@@ -156,8 +133,6 @@ kubectl exec -it vault-2 -- sh -c "vault operator unseal -tls-skip-verify $KEYS"
 - Ingress
 
 ```kubectl create -f vault/ingress.yaml```
-
-
 
 ### Environment Variables
 
